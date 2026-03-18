@@ -251,8 +251,11 @@ const tremerTela = () => {
               <button 
                 v-if="dicasRestantes > 0 && etapaAtual < 4" 
                 @click="iniciarDica" 
-                class="px-5 py-3 bg-purple-900/40 text-purple-300 text-sm font-bold rounded-xl border border-purple-500/30 shadow-lg hover:bg-purple-800 transition-all">
-                💡 {{ dicasRestantes }}
+                class="flex items-center justify-center gap-2 px-6 py-4 bg-purple-900/40 text-purple-300 font-bold rounded-xl border border-purple-500/30 shadow-lg hover:bg-purple-800 transition-all active:scale-95"
+              >
+                <span class="text-2xl sm:text-3xl leading-none drop-shadow-md">💡</span> 
+                
+                <span class="text-sm sm:text-base mt-1">{{ dicasRestantes }}</span>
               </button>
             </div>
 
