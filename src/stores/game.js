@@ -1,8 +1,33 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from './auth'
 import confetti from 'canvas-confetti'
+
+const bibleBooksMap = {
+  "Livro 1": "Gênesis", "Livro 2": "Êxodo", "Livro 3": "Levítico",
+  "Livro 4": "Números", "Livro 5": "Deuteronômio", "Livro 6": "Josué",
+  "Livro 7": "Juízes", "Livro 8": "Rute", "Livro 9": "1 Samuel",
+  "Livro 10": "2 Samuel", "Livro 11": "1 Reis", "Livro 12": "2 Reis",
+  "Livro 13": "1 Crônicas", "Livro 14": "2 Crônicas", "Livro 15": "Esdras",
+  "Livro 16": "Neemias", "Livro 17": "Ester", "Livro 18": "Jó",
+  "Livro 19": "Salmos", "Livro 20": "Provérbios", "Livro 21": "Eclesiastes",
+  "Livro 22": "Cânticos", "Livro 23": "Isaías", "Livro 24": "Jeremias",
+  "Livro 25": "Lamentações", "Livro 26": "Ezequiel", "Livro 27": "Daniel",
+  "Livro 28": "Oséias", "Livro 29": "Joel", "Livro 30": "Amós",
+  "Livro 31": "Obadias", "Livro 32": "Jonas", "Livro 33": "Miquéias",
+  "Livro 34": "Naum", "Livro 35": "Habacuque", "Livro 36": "Sofonias",
+  "Livro 37": "Ageu", "Livro 38": "Zacarias", "Livro 39": "Malaquias",
+  "Livro 40": "Mateus", "Livro 41": "Marcos", "Livro 42": "Lucas",
+  "Livro 43": "João", "Livro 44": "Atos", "Livro 45": "Romanos",
+  "Livro 46": "1 Coríntios", "Livro 47": "2 Coríntios", "Livro 48": "Gálatas",
+  "Livro 49": "Efésios", "Livro 50": "Filipenses", "Livro 51": "Colossenses",
+  "Livro 52": "1 Tessalonicenses", "Livro 53": "2 Tessalonicenses", "Livro 54": "1 Timóteo",
+  "Livro 55": "2 Timóteo", "Livro 56": "Tito", "Livro 57": "Filemom",
+  "Livro 58": "Hebreus", "Livro 59": "Tiago", "Livro 60": "1 Pedro",
+  "Livro 61": "2 Pedro", "Livro 62": "1 João", "Livro 63": "2 João",
+  "Livro 64": "3 João", "Livro 65": "Judas", "Livro 66": "Apocalipse"
+}
 
 export const useGameStore = defineStore('game', () => {
   const authStore = useAuthStore()
@@ -15,34 +40,18 @@ export const useGameStore = defineStore('game', () => {
   const isCorrect = ref(false)
   const isShaking = ref(false)
 
-  // Selection
-  const step = ref(1) // 1=book 2=chapter 3=verse 4=confirm
-  const selection = ref({ book: null, chapter: null, verse: null })
+  // Game Flow (Antigo "Hint Mode")
+  const gameStage = ref(1) // 1=book 2=chapter 3=verse
+  const stageTitle = ref('')
+  const options = ref([])
+  const selectedOption = ref(null)
+  const errors = ref(0)
 
   // Combo / score
   const streak = ref(0)
   const maxStreak = ref(0)
   const sessionScore = ref(0)
-
-  // Hints
-  const hintsLeft = ref(5)
-  const isHintMode = ref(false)
-  const hintStep = ref(1)
-  const hintTitle = ref('')
-  const hintOptions = ref([])
-  const hintSelected = ref(null)
-  const hintErrors = ref(0)
-
-  // ─── Computed ─────────────────────────────────────────────
-  const selectionLabel = computed(() => {
-    if (step.value === 1) return 'Qual o Livro?'
-    if (step.value === 2) return `Cap. de ${selection.value.book?.name}?`
-    if (step.value === 3) return 'Qual o Versículo?'
-    return `${selection.value.book?.name} ${selection.value.chapter}:${selection.value.verse}`
-  })
-
-  const oldTestament = computed(() => books.value.filter(b => b.testament === 'Old'))
-  const newTestament = computed(() => books.value.filter(b => b.testament === 'New'))
+  
 
   // ─── Init ─────────────────────────────────────────────────
   async function init() {
@@ -52,21 +61,21 @@ export const useGameStore = defineStore('game', () => {
 
   async function fetchBooks() {
     const { data } = await supabase.from('books').select('*').order('book_order')
-    if (data) books.value = data
+    if (data) {
+      books.value = data.map(book => ({
+        ...book,
+        name: bibleBooksMap[book.name] || book.name
+      }))
+    }
   }
 
   async function fetchVerse() {
     isLoading.value = true
     isFlipped.value = false
-    isHintMode.value = false
-    step.value = 1
-    selection.value = { book: null, chapter: null, verse: null }
-    hintErrors.value = 0
-    hintSelected.value = null
-
+    
     let data = null
 
-    // Try favorites first if logged in
+    // Tentar favoritos primeiro se estiver logado
     if (authStore.isLoggedIn) {
       const { data: favCount } = await supabase
         .from('favorite_verses')
@@ -81,151 +90,132 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // Fallback: random verse
     if (!data) {
       const { data: random } = await supabase.rpc('get_random_verse')
       if (random && random.length > 0) data = random[0]
     }
 
-    verse.value = data
-    isLoading.value = false
-  }
-
-  // ─── Selection steps ──────────────────────────────────────
-  function selectBook(book) { selection.value.book = book; step.value = 2 }
-  function selectChapter(n) { selection.value.chapter = n; step.value = 3 }
-  function selectVerse(n) { selection.value.verse = n; step.value = 4 }
-  function goBack() {
-    if (step.value === 2) { step.value = 1; selection.value.book = null }
-    else if (step.value === 3) { step.value = 2; selection.value.chapter = null }
-    else if (step.value === 4) { step.value = 3; selection.value.verse = null }
-  }
-
-  // ─── Verify answer ────────────────────────────────────────
-  async function verifyAnswer() {
-    const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    const correct =
-      normalize(verse.value.book_name) === normalize(selection.value.book?.name ?? '') &&
-      Number(verse.value.chapter) === Number(selection.value.chapter) &&
-      Number(verse.value.verse_number) === Number(selection.value.verse)
-
-    isCorrect.value = correct
-    isFlipped.value = true
-
-    if (correct) {
-      streak.value++
-      if (streak.value > maxStreak.value) maxStreak.value = streak.value
-      const gained = 100 + Math.min(streak.value * 25, 500)
-      sessionScore.value += gained
-      fireConfetti()
-    } else {
-      streak.value = 0
-      shake()
+    if (data) {
+      data.book_name = bibleBooksMap[data.book_name] || data.book_name
     }
 
-    await persistResult(correct, 0)
+    verse.value = data
+    isLoading.value = false
+    
+    // Iniciar o jogo
+    startGame()
   }
 
-  // ─── Hints ────────────────────────────────────────────────
-  function startHint() {
-    if (hintsLeft.value <= 0) return
-    hintsLeft.value--
-    isHintMode.value = true
-    hintStep.value = 1
-    hintErrors.value = 0
-    generateHintOptions()
+  // ─── Lógica Principal do Jogo ─────────────────────────────
+  function startGame() {
+    gameStage.value = 1
+    errors.value = 0
+    generateOptions()
   }
 
-  function generateHintOptions() {
-    hintSelected.value = null
+  function generateOptions() {
+    selectedOption.value = null
     const shuffle = arr => [...arr].sort(() => Math.random() - 0.5)
 
     let correct, wrong
 
-    if (hintStep.value === 1) {
-      hintTitle.value = 'Qual é o Livro?'
-      correct = { text: verse.value.book_name, isCorrect: true }
-      const opposite = verse.value.testament === 'Old' ? 'New' : 'Old'
-      const pool = books.value.filter(b => b.testament === opposite)
-      wrong = { text: pool[Math.floor(Math.random() * pool.length)].name, isCorrect: false }
-    } else if (hintStep.value === 2) {
-      hintTitle.value = 'Qual é o Capítulo?'
+    if (gameStage.value === 1) {
+      stageTitle.value = 'Qual é o Livro?'
+      
+      const correctBookName = verse.value?.book_name ?? 'Desconhecido'
+      
+      correct = {
+        text: correctBookName,
+        isCorrect: true
+      }
+
+      const allBooks = Object.values(bibleBooksMap)
+
+      const pool = allBooks.filter(bookName => bookName !== correctBookName)
+
+      const randomBookName = pool[Math.floor(Math.random() * pool.length)]
+
+      wrong = { 
+        text: randomBookName, 
+        isCorrect: false 
+      }
+    } else if (gameStage.value === 2) {
+      stageTitle.value = 'Qual é o Capítulo?'
       const c = verse.value.chapter
       let w = c + (Math.random() > 0.5 ? 1 : -1)
       if (w < 1 || w === c) w = c + 2
       correct = { text: `Capítulo ${c}`, isCorrect: true }
       wrong = { text: `Capítulo ${w}`, isCorrect: false }
     } else {
-      hintTitle.value = 'Qual é o Versículo?'
+      stageTitle.value = 'Qual é o Versículo?'
       const v = verse.value.verse_number
       const w = v + Math.floor(Math.random() * 15) + 1
       correct = { text: `Versículo ${v}`, isCorrect: true }
       wrong = { text: `Versículo ${w}`, isCorrect: false }
     }
 
-    hintOptions.value = shuffle([correct, wrong])
+    options.value = shuffle([correct, wrong])
   }
 
-  async function answerHint(option) {
-    if (hintSelected.value !== null) return
-    hintSelected.value = option
+  async function chooseOption(option) {
+    if (selectedOption.value !== null) return
+    selectedOption.value = option
 
     if (!option.isCorrect) {
       streak.value = 0
-      hintErrors.value++
+      errors.value++
       shake()
     }
 
     setTimeout(async () => {
-      if (hintStep.value < 3) {
-        hintStep.value++
-        generateHintOptions()
+      if (gameStage.value < 3) {
+        gameStage.value++
+        generateOptions()
       } else {
-        // Done with hint minigame
-        isHintMode.value = false
-        const won = hintErrors.value === 0
+        // Fim da rodada
+        const won = errors.value === 0
         isCorrect.value = won
         isFlipped.value = true
 
         if (won) {
           streak.value++
           if (streak.value > maxStreak.value) maxStreak.value = streak.value
-          const gained = 75 + Math.min(streak.value * 15, 300)
+          const gained = 100 + Math.min(streak.value * 25, 500)
           sessionScore.value += gained
           fireConfetti()
         } else {
           shake()
         }
 
-        await persistResult(won, 1)
+        await persistResult(won)
       }
     }, 1200)
   }
 
-  function hintOptionClass(op) {
-    if (!hintSelected.value) return 'bg-slate-800 border-purple-500/40 hover:bg-slate-700 hover:border-purple-400 text-white'
+  function optionClass(op) {
+    if (!selectedOption.value) return 'bg-slate-800 border-indigo-500/40 hover:bg-slate-700 hover:border-indigo-400 text-white'
     if (op.isCorrect) return 'bg-green-900/80 border-green-500 text-green-300 shadow-[0_0_20px_rgba(34,197,94,0.4)]'
-    if (hintSelected.value === op && !op.isCorrect) return 'bg-rose-900/80 border-rose-500 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
+    if (selectedOption.value === op && !op.isCorrect) return 'bg-rose-900/80 border-rose-500 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
     return 'bg-slate-900 border-slate-800 opacity-30 text-slate-600'
   }
 
-  // ─── Persist ──────────────────────────────────────────────
-  async function persistResult(correct, hintsUsed) {
+  // ─── Persistência ─────────────────────────────────────────
+  async function persistResult(correct) {
     if (!authStore.isLoggedIn || !verse.value) return
 
     const userId = authStore.user.id
     const today = new Date().toISOString().substring(0, 10)
 
-    // Log result
+    // Log result (removido a coluna hints_used, ou você pode passar 0 fixo se preferir manter o DB atual)
     await supabase.from('daily_results').insert({
       user_id: userId,
       verse_id: verse.value.id,
       session_date: today,
       correct,
-      hints_used: hintsUsed,
+      hints_used: 0,
     })
 
-    // Verse progress (upsert)
+    // Atualizar progresso
     const { data: existing } = await supabase
       .from('verse_progress')
       .select('id, correct_streak')
@@ -252,18 +242,18 @@ export const useGameStore = defineStore('game', () => {
       })
     }
 
-    // Update profile XP and streak
+    // Atualizar perfil
     if (correct) {
       await supabase.rpc('update_player_stats', {
         p_user_id: userId,
-        p_xp_gained: correct ? 10 : 0,
+        p_xp_gained: 10,
         p_new_streak: streak.value,
       })
       await authStore.refreshProfile()
     }
   }
 
-  // ─── Effects ──────────────────────────────────────────────
+  // ─── Efeitos ──────────────────────────────────────────────
   function fireConfetti() {
     const end = Date.now() + 2000
     const frame = () => {
@@ -281,10 +271,8 @@ export const useGameStore = defineStore('game', () => {
 
   return {
     verse, books, isLoading, isFlipped, isCorrect, isShaking,
-    step, selection, selectionLabel, oldTestament, newTestament,
+    gameStage, stageTitle, options, selectedOption,
     streak, maxStreak, sessionScore,
-    hintsLeft, isHintMode, hintStep, hintTitle, hintOptions, hintSelected, hintErrors,
-    init, fetchVerse, selectBook, selectChapter, selectVerse, goBack,
-    verifyAnswer, startHint, answerHint, hintOptionClass,
+    init, fetchVerse, chooseOption, optionClass
   }
 })
