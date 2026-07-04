@@ -1,69 +1,433 @@
+<div align="center">
+
+<br/>
+
+<img src="public/favicon.svg" width="72" height="72" alt="Flash Verse logo" />
+
+<br/>
+<br/>
+
 # ⚡ Flash Verse
 
-> **Memorize a Palavra com estilo.** Um aplicativo de flashcards bíblicos gamificado, desenvolvido com foco extremo na experiência do usuário (UX) e design imersivo.
+**Memorização bíblica gamificada**
 
-![Vue.js](https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vue.js&logoColor=4FC08D)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-181818?style=for-the-badge&logo=supabase&logoColor=3ECF8E)
+![Vue](https://img.shields.io/badge/Vue_3-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white) ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white) ![Pinia](https://img.shields.io/badge/Pinia-F7DC6F?style=for-the-badge&logo=vue.js&logoColor=black) ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white) ![License](https://img.shields.io/badge/License-MIT-6366F1?style=for-the-badge)
+<br/>
 
-## 📖 Sobre o Projeto
+[Demo](#) · [Funcionalidades](#-funcionalidades) · [Arquitetura](#-arquitetura) · [Setup](#-setup) · [Banco de Dados](#-banco-de-dados)
 
-O **Flash Verse** transforma a memorização de versículos bíblicos em um desafio dinâmico e recompensador. Em vez de apenas ler, o usuário é testado a lembrar a referência exata (Livro, Capítulo e Versículo) de textos selecionados, utilizando uma interface moderna de cartões 3D.
+<br/>
 
-## ✨ Funcionalidades Principais
-
-* 🃏 **Cartões 3D Interativos:** Animações fluidas de *flip* (frente e verso) construídas puramente com CSS e Tailwind, otimizadas para performance.
-* 📱 **Design Imersivo (Edge-to-Edge):** Interface responsiva que atua como um "App Nativo". No mobile, o cartão se expande para utilizar 70% da tela, garantindo conforto na leitura de textos longos. No desktop, mantém um visual elegante de painel central.
-* 🔥 **Sistema de Combos (Streak):** Gamificação em tempo real. Acertos consecutivos aumentam o seu multiplicador de chamas. Um erro zera o combo instantaneamente com um efeito de tela tremendo (Screen Shake).
-* 💡 **Minigame de Dicas (50/50):** O usuário possui 5 dicas limitadas por sessão. Ao ativar, a interface muda para um minigame de 3 etapas (Livro, Capítulo, Versículo), oferecendo a resposta correta contra uma opção falsa (incluindo "pegadinhas" entre o Antigo e Novo Testamento).
-* 🎉 **Recompensas Visuais:** Integração com `canvas-confetti` para celebrar acertos de forma explosiva e satisfatória.
-
-## 🛠️ Tecnologias Utilizadas
-
-* **[Vue.js 3](https://vuejs.org/)** (Composition API & `<script setup>`)
-* **[Tailwind CSS](https://tailwindcss.com/)** (Estilização utilitária, Animações customizadas e Responsividade agressiva)
-* **[Supabase](https://supabase.com/)** (Backend-as-a-Service para o banco de dados de Livros e Versículos)
-* **[Canvas Confetti](https://www.npmjs.com/package/canvas-confetti)** (Efeitos de partículas)
-
-## 🚀 Como Executar o Projeto Localmente
-
-### Pré-requisitos
-* [Node.js](https://nodejs.org/) instalado na sua máquina.
-* Um banco de dados configurado no Supabase com as tabelas `books` e uma função `get_random_favorite_verse`.
-
-### Passo a Passo
-
-1. **Clone o repositório:**
-   ```bash
-   git clone https://github.com/Poliih/flashverse.git
-   cd flash-verse
-   ```
-
-2. **Instale as dependências:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure as Variáveis de Ambiente:**
-   Crie um arquivo `.env` na raiz do projeto e adicione as suas chaves do Supabase:
-   ```env
-   VITE_SUPABASE_URL=sua_url_do_supabase_aqui
-   VITE_SUPABASE_ANON_KEY=sua_chave_anonima_aqui
-   ```
-
-4. **Inicie o servidor de desenvolvimento:**
-   ```bash
-   npm run dev
-   ```
-
-5. **Acesse no navegador:**
-   Abra `http://localhost:5173` para ver o Flash Verse em ação.
-
-## 🛣️ Roadmap (Próximos Passos)
-
-- [ ] **Catálogo de Favoritos:** Tela dedicada para pesquisa de versículos na Bíblia completa, permitindo ao usuário "favoritar" textos que entrarão na rotação do jogo.
-- [ ] **Modo Escuro/Claro:** Alternância de temas.
-- [ ] **Autenticação:** Perfis de usuário para salvar o maior Combo (High Score) no banco de dados.
+</div>
 
 ---
-*Desenvolvido com dedicação.*
+
+# 📖 O que é?
+
+O **Flash Verse** é um jogo de memorização bíblica baseado em **recall ativo**.
+
+Diferente de um quiz tradicional, aqui você vê apenas o texto do versículo e precisa identificar sua origem em um sistema de **3 decisões sequenciais 50/50**:
+
+* **Livro**
+* **Capítulo**
+* **Versículo**
+
+Cada etapa apresenta apenas **duas opções**, uma correta e outra errada estrategicamente gerada.
+
+Esse formato cria um equilíbrio entre:
+
+* memorização real
+* velocidade de decisão
+* retenção de longo prazo
+* gamificação competitiva
+
+O objetivo é transformar estudo bíblico em hábito diário.
+
+---
+
+# ✨ Funcionalidades
+
+## 🎮 Gameplay Principal
+
+* Flip card 3D para exibição e revelação do versículo
+* Mecânica principal em **3 rounds 50/50**
+* Fluxo:
+
+  * Livro
+  * Capítulo
+  * Versículo
+* Alternativas embaralhadas dinamicamente
+* Sistema de feedback visual por etapa
+* Confete no acerto
+* Shake no erro
+* Progressão automática para o próximo versículo
+
+---
+
+## 🔥 Sistema de Pontuação
+
+Pontuação baseada em streak:
+
+```txt
+XP = 100 + min(streak × 25, 500)
+```
+
+Quanto maior a sequência:
+
+* mais XP
+* maior multiplicador
+* maior progressão no ranking
+
+---
+
+## ⚡ Combo System
+
+* Streak acumulativo por acertos consecutivos
+* Glow visual ao atingir combos altos
+* Reset automático ao errar
+* Persistido no perfil do usuário
+
+---
+
+## 💾 Persistência Inteligente
+
+Cada rodada salva:
+
+| Tabela           | Função                            |
+| ---------------- | --------------------------------- |
+| `daily_results`  | Histórico de tentativas           |
+| `verse_progress` | Evolução individual por versículo |
+| `profiles`       | XP e streak global                |
+
+---
+
+## 🔖 Favoritos
+
+* Salvar versículos favoritos
+* Remover favoritos
+* Sorteio prioriza favoritos primeiro
+* Reforço de repetição espaçada
+
+RPC utilizada:
+
+```sql
+get_random_favorite_verse(p_user_id)
+```
+
+---
+
+## 🏆 Ranking Global
+
+* Top jogadores por XP
+* Pódio visual
+* Destaque para usuário logado
+* Ranking em tempo real
+
+---
+
+## 👥 Sistema de Amigos
+
+* Adicionar amigos por código
+* Aceitar/recusar solicitações
+* Ranking privado entre amigos
+* Sistema baseado em UUID curto
+
+---
+
+## 👤 Perfil
+
+* Avatar por inicial
+* Nível baseado em XP
+* Barra de progresso para próximo nível
+* Estatísticas:
+
+  * tentativas
+  * acertos
+  * precisão
+  * versículos dominados
+
+---
+
+# 🔐 Autenticação
+
+Feita com Supabase Auth:
+
+* Cadastro
+* Login
+* Logout
+* Persistência de sessão
+* Recuperação de senha
+* Guards de rota
+
+---
+
+# 🏗️ Arquitetura
+
+```txt
+src/
+├── main.js
+├── App.vue
+│
+├── lib/
+│   └── supabase.js
+│
+├── router/
+│   └── index.js
+│
+├── stores/
+│   ├── auth.js
+│   └── game.js
+│
+└── views/
+    ├── LoginView.vue
+    ├── RegisterView.vue
+    ├── ForgotPasswordView.vue
+    ├── GameView.vue
+    ├── RankingView.vue
+    ├── FriendsView.vue
+    ├── FavoritesView.vue
+    └── ProfileView.vue
+```
+
+---
+
+# 🔄 Fluxo do jogo
+
+```txt
+fetchVerse()
+    ↓
+Step 1 → Escolher Livro (50/50)
+    ↓
+Step 2 → Escolher Capítulo (50/50)
+    ↓
+Step 3 → Escolher Versículo (50/50)
+    ↓
+Resultado
+    ↓
+Acerto → streak++ + XP + confetti
+Erro   → streak = 0 + shake
+    ↓
+Próximo versículo
+```
+
+---
+
+# 🗄️ Banco de Dados
+
+## Tabelas principais
+
+### `profiles`
+
+```txt
+id
+username
+xp
+streak
+last_login
+updated_at
+```
+
+---
+
+### `books`
+
+```txt
+id
+testament
+name
+total_chapters
+book_order
+```
+
+---
+
+### `verses`
+
+```txt
+id
+testament
+book_name
+chapter
+verse_number
+text
+translation_id
+book_id
+```
+
+---
+
+### `daily_results`
+
+```txt
+id
+user_id
+verse_id
+session_date
+correct
+hints_used
+created_at
+```
+
+> `hints_used` foi mantido por compatibilidade histórica.
+
+---
+
+### `verse_progress`
+
+```txt
+id
+user_id
+verse_id
+correct_streak
+last_seen
+next_review
+mastered
+```
+
+---
+
+### `favorite_verses`
+
+```txt
+id
+user_id
+verse_id
+created_at
+```
+
+---
+
+### `friendships`
+
+```txt
+id
+requester_id
+receiver_id
+status
+created_at
+```
+
+---
+
+# ⚙️ RPCs
+
+| Função                                 | Uso                                |
+| -------------------------------------- | ---------------------------------- |
+| `get_random_verse()`                   | Sorteio aleatório                  |
+| `get_random_favorite_verse(p_user_id)` | Sorteio de favoritos               |
+| `update_player_stats(...)`             | Atualização atômica de XP e streak |
+
+---
+
+# 🚀 Setup
+
+## 1. Clone o projeto
+
+```bash
+git clone https://github.com/Poliih/flashverse.git
+cd flashverse
+```
+
+---
+
+## 2. Instale dependências
+
+```bash
+npm install
+```
+
+---
+
+## 3. Configure o `.env`
+
+```env
+VITE_SUPABASE_URL=https://SEU_PROJETO.supabase.co
+VITE_SUPABASE_ANON_KEY=SUA_ANON_KEY
+```
+
+---
+
+## 4. Execute migration no Supabase
+
+Arquivo:
+
+```txt
+supabase/migrations/001_initial_schema.sql
+```
+
+---
+
+## 5. Rode localmente
+
+```bash
+npm run dev
+```
+
+---
+
+# 📦 Build
+
+```bash
+npm run build
+```
+
+Saída:
+
+```txt
+/dist
+```
+
+---
+
+# 🛠️ Stack
+
+| Tecnologia      | Papel           |
+| --------------- | --------------- |
+| Vue 3           | Front-end       |
+| Vite            | Build tool      |
+| Pinia           | Estado global   |
+| Vue Router      | Rotas           |
+| Supabase        | Auth + Database |
+| Tailwind CSS    | UI              |
+| canvas-confetti | Feedback visual |
+
+---
+
+# 🗺️ Roadmap
+
+* [ ] Modo offline
+* [ ] Traduções bíblicas (NVI, ARA, ACF)
+* [ ] PvP em tempo real
+* [ ] PWA
+* [ ] Sistema de conquistas
+* [ ] Heatmap de sessões
+* [ ] Notificações push
+
+---
+
+# 🤝 Contribuição
+
+```bash
+git checkout -b feat/minha-feature
+git commit -m "feat: nova feature"
+git push origin feat/minha-feature
+```
+
+Abra um Pull Request.
+
+---
+
+# 📄 Licença
+
+MIT License.
+
+---
+
+<div align="center">
+
+Feito com ❤️ e fé.
+
+**⚡ Flash Verse**
+Memorize a Palavra.
+
+</div>
