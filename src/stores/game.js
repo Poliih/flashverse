@@ -32,16 +32,21 @@ const bibleBooksMap = {
 export const useGameStore = defineStore('game', () => {
   const authStore = useAuthStore()
 
-  // ─── State ────────────────────────────────────────────────
   const verse = ref(null)
   const books = ref([])
   const isLoading = ref(true)
   const isFlipped = ref(false)
   const isCorrect = ref(false)
+  const isSaving = ref(false)
   const isShaking = ref(false)
+  const isStudying = ref(true)
 
-  // Game Flow (Antigo "Hint Mode")
-  const gameStage = ref(1) // 1=book 2=chapter 3=verse
+  const deck = ref([])
+  const currentCardIndex = ref(0) 
+  const isDeckFinished = ref(false) 
+  
+
+  const gameStage = ref(1) 
   const stageTitle = ref('')
   const options = ref([])
   const selectedOption = ref(null)
@@ -53,7 +58,6 @@ export const useGameStore = defineStore('game', () => {
   const sessionScore = ref(0)
   
 
-  // ─── Init ─────────────────────────────────────────────────
   async function init() {
     await fetchBooks()
     await fetchVerse()
@@ -69,44 +73,120 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  async function fetchVerse() {
-    isLoading.value = true
-    isFlipped.value = false
-    
-    let data = null
+  async function fetchDailyDeck() {
+    isLoading.value = true;
+    isSaving.value = false;
+    isDeckFinished.value = false;
+    currentCardIndex.value = 0;
+    verse.value = null;
 
-    // Tentar favoritos primeiro se estiver logado
-    if (authStore.isLoggedIn) {
-      const { data: favCount } = await supabase
-        .from('favorite_verses')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', authStore.user.id)
+    try {
+      if (!authStore.isLoggedIn) return;
 
-      if (favCount !== null) {
-        const { data: favVerse } = await supabase.rpc('get_random_favorite_verse', {
-          p_user_id: authStore.user.id
-        })
-        if (favVerse && favVerse.length > 0) data = favVerse[0]
+      const { data, error } = await supabase.rpc('get_or_create_daily_stack', {
+        p_user_id: authStore.user.id
+      });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        deck.value = data.map(v => ({
+          ...v,
+          book_name: bibleBooksMap[v.book_name] || v.book_name, 
+          id: v.verse_id
+        }));
+        
+        isStudying.value = true;
+      } else {
+        isDeckFinished.value = true;
       }
+      //   loadNextCard(); 
+    } catch (error) {
+    } finally {
+      isLoading.value = false;
     }
-
-    if (!data) {
-      const { data: random } = await supabase.rpc('get_random_verse')
-      if (random && random.length > 0) data = random[0]
-    }
-
-    if (data) {
-      data.book_name = bibleBooksMap[data.book_name] || data.book_name
-    }
-
-    verse.value = data
-    isLoading.value = false
-    
-    // Iniciar o jogo
-    startGame()
   }
 
-  // ─── Lógica Principal do Jogo ─────────────────────────────
+  function loadNextCard() {
+    isFlipped.value = false;
+    isCorrect.value = false;
+    isShaking.value = false;
+    selectedOption.value = null;
+
+    if (currentCardIndex.value < deck.value.length) {
+      verse.value = deck.value[currentCardIndex.value];
+      startGame();
+    } else {
+      isDeckFinished.value = true; 
+    }
+  }
+
+  function startQuiz() {
+    isStudying.value = false;
+    loadNextCard();
+  }
+
+  async function fetchVerse() {
+
+    if (isSaving.value) {
+      return; 
+    }
+
+    isLoading.value = true;
+    isFlipped.value = false;
+    isCorrect.value = false;
+    isShaking.value = false;
+    selectedOption.value = null;
+    
+    isSaving.value = false;
+    verse.value = null; 
+
+    try {
+      let data = null;
+
+      if (authStore.isLoggedIn) {
+        const { count: favCount, error: countErr } = await supabase
+          .from('favorite_verses')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', authStore.user.id);
+
+        if (countErr) console.error('Erro ao checar favoritos:', countErr);
+
+        if (favCount && favCount > 0) {
+          const { data: favVerse, error: favErr } = await supabase.rpc('get_random_favorite_verse', {
+            p_user_id: authStore.user.id
+          });
+          
+          if (favErr) console.error('Erro na RPC de favorito:', favErr);
+          if (favVerse) data = Array.isArray(favVerse) ? favVerse[0] : favVerse;
+        }
+      }
+
+      if (!data) {
+        const { data: random, error: randErr } = await supabase.rpc('get_random_verse');
+        if (randErr) console.error('Erro na RPC geral:', randErr);
+        
+        if (random) data = Array.isArray(random) ? random[0] : random;
+      }
+
+      if (data && data.book_name) {
+        data.book_name = bibleBooksMap[data.book_name] || data.book_name;
+      }
+
+      verse.value = data || null;
+
+      if (verse.value) {
+        startGame();
+      } else {
+      }
+
+    } catch (error) {
+      verse.value = null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   function startGame() {
     gameStage.value = 1
     errors.value = 0
@@ -158,21 +238,27 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function chooseOption(option) {
-    if (selectedOption.value !== null) return
-    selectedOption.value = option
+  if (selectedOption.value !== null) return
+  selectedOption.value = option
 
-    if (!option.isCorrect) {
-      streak.value = 0
-      errors.value++
-      shake()
-    }
+  if (!option.isCorrect) {
+    streak.value = 0
+    errors.value++
+    shake()
+  }
 
-    setTimeout(async () => {
+  let savePromise = null
+  if (gameStage.value === 3) {
+    const won = errors.value === 0
+    savePromise = persistResult(won, verse.value) 
+  }
+
+  setTimeout(async () => {
+    try {
       if (gameStage.value < 3) {
         gameStage.value++
         generateOptions()
       } else {
-        // Fim da rodada
         const won = errors.value === 0
         isCorrect.value = won
         isFlipped.value = true
@@ -182,15 +268,29 @@ export const useGameStore = defineStore('game', () => {
           if (streak.value > maxStreak.value) maxStreak.value = streak.value
           const gained = 100 + Math.min(streak.value * 25, 500)
           sessionScore.value += gained
-          fireConfetti()
+          
+          try {
+            fireConfetti()
+          } catch (confettiError) {
+            console.warn('Erro na animação ignorado:', confettiError)
+          }
         } else {
           shake()
         }
 
-        await persistResult(won)
+        if (savePromise) await savePromise
       }
-    }, 1200)
-  }
+    } catch (err) {
+      console.error('Erro grave na transição de estágio:', err)
+      isLoading.value = false 
+    }
+  }, 1200)
+}
+
+  function nextCard() {
+      currentCardIndex.value++;
+      loadNextCard();
+    }
 
   function optionClass(op) {
     if (!selectedOption.value) return 'bg-slate-800 border-indigo-500/40 hover:bg-slate-700 hover:border-indigo-400 text-white'
@@ -199,28 +299,28 @@ export const useGameStore = defineStore('game', () => {
     return 'bg-slate-900 border-slate-800 opacity-30 text-slate-600'
   }
 
-  // ─── Persistência ─────────────────────────────────────────
-  async function persistResult(correct) {
-    if (!authStore.isLoggedIn || !verse.value) return
+async function persistResult(correct, currentVerse) {
+  if (!authStore.isLoggedIn || !currentVerse) return
 
+  isSaving.value = true 
+
+  try {
     const userId = authStore.user.id
     const today = new Date().toISOString().substring(0, 10)
 
-    // Log result (removido a coluna hints_used, ou você pode passar 0 fixo se preferir manter o DB atual)
     await supabase.from('daily_results').insert({
       user_id: userId,
-      verse_id: verse.value.id,
+      verse_id: currentVerse.id, 
       session_date: today,
       correct,
       hints_used: 0,
     })
 
-    // Atualizar progresso
     const { data: existing } = await supabase
       .from('verse_progress')
       .select('id, correct_streak')
       .eq('user_id', userId)
-      .eq('verse_id', verse.value.id)
+      .eq('verse_id', currentVerse.id) 
       .maybeSingle()
 
     if (existing) {
@@ -234,7 +334,7 @@ export const useGameStore = defineStore('game', () => {
     } else {
       await supabase.from('verse_progress').insert({
         user_id: userId,
-        verse_id: verse.value.id,
+        verse_id: currentVerse.id,
         correct_streak: correct ? 1 : 0,
         last_seen: today,
         next_review: new Date(Date.now() + 86400000).toISOString().substring(0, 10),
@@ -242,18 +342,25 @@ export const useGameStore = defineStore('game', () => {
       })
     }
 
-    // Atualizar perfil
     if (correct) {
-      await supabase.rpc('update_player_stats', {
-        p_user_id: userId,
-        p_xp_gained: 10,
-        p_new_streak: streak.value,
-      })
-      await authStore.refreshProfile()
+      try {
+        await supabase.rpc('update_player_stats', {
+          p_user_id: userId,
+          p_xp_gained: 10,
+          p_new_streak: streak.value,
+        })
+        await authStore.refreshProfile()
+      } catch (innerError) {
+        console.error('Erro ao atualizar stats:', innerError)
+      }
     }
+  } catch (error) {
+    console.error('Erro geral ao salvar os resultados:', error)
+  } finally {
+    isSaving.value = false 
   }
+}
 
-  // ─── Efeitos ──────────────────────────────────────────────
   function fireConfetti() {
     const end = Date.now() + 2000
     const frame = () => {
@@ -270,9 +377,11 @@ export const useGameStore = defineStore('game', () => {
   }
 
   return {
-    verse, books, isLoading, isFlipped, isCorrect, isShaking,
+    verse, deck, isDeckFinished, currentCardIndex, 
+    books, isLoading, isFlipped, isCorrect, isShaking, isSaving,
     gameStage, stageTitle, options, selectedOption,
-    streak, maxStreak, sessionScore,
-    init, fetchVerse, chooseOption, optionClass
+    streak, maxStreak, sessionScore, isStudying, startQuiz,
+    init: fetchDailyDeck, 
+    fetchDailyDeck, nextCard, chooseOption, optionClass
   }
 })

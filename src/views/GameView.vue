@@ -45,7 +45,42 @@ onMounted(() => game.init())
       <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
 
-    <div v-else-if="game.verse" class="flex-1 flex flex-col gap-4 sm:gap-8 min-h-0">
+    <div v-else-if="game.isStudying" class="flex-1 flex flex-col min-h-0 max-w-3xl mx-auto w-full animate-fade-in pb-4">
+      <div class="text-center mb-6 flex-shrink-0">
+        <h2 class="text-2xl sm:text-3xl font-black text-white mb-2">Sala de Memorização</h2>
+        <p class="text-slate-400 text-sm sm:text-base">Leia com atenção o seu deck de hoje antes de começar o desafio.</p>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2 pb-6">
+        <div v-for="(v, index) in game.deck" :key="v.verse_id" class="bg-[#0F172A] border border-slate-700 rounded-2xl p-5 sm:p-6 shadow-lg relative overflow-hidden">
+          <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+          
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3">
+            <span class="w-max bg-indigo-500/20 text-indigo-400 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-lg uppercase tracking-widest">
+              Carta {{ v.stack_position }} de 5
+            </span>
+            <span class="text-slate-200 font-bold text-lg">
+              {{ v.book_name }} {{ v.chapter }}:{{ v.verse_number }}
+            </span>
+          </div>
+          
+          <p class="text-slate-300 italic leading-relaxed text-base sm:text-lg">
+            "{{ v.verse_text }}"
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-4 flex-shrink-0 mt-auto">
+        <button 
+          @click="game.startQuiz()" 
+          class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg py-5 rounded-2xl transition-all active:scale-95 shadow-[0_0_20px_rgba(79,70,229,0.3)]"
+        >
+          Estou Pronto! Começar Desafio →
+        </button>
+      </div>
+    </div>
+
+    <div v-else-if="game.verse && !game.isLoading" :key="game.verse.verse_id || 'game-board'" class="flex-1 flex flex-col gap-4 sm:gap-8 min-h-0 animate-fade-in">
 
       <div class="flex-1 flex items-center justify-center min-h-[35vh]">
         <div class="perspective-1200 w-full flex items-stretch justify-center h-full max-h-[450px]">
@@ -57,7 +92,7 @@ onMounted(() => game.init())
             <div class="backface-hidden absolute inset-0 flex flex-col bg-[#0F172A] rounded-[2rem] border border-slate-800 overflow-hidden shadow-xl">
               <div class="flex-1 overflow-y-auto custom-scrollbar flex items-center justify-center p-6 sm:p-10">
                 <p class="text-lg sm:text-2xl font-semibold italic leading-relaxed text-slate-100 text-center w-full">
-                  "{{ game.verse.text }}"
+                  "{{ game.verse.verse_text }}"
                 </p>
               </div>
             </div>
@@ -98,11 +133,17 @@ onMounted(() => game.init())
                 </div>
 
                 <button
-                  @click="game.fetchVerse()"
-                  class="w-full bg-slate-700 hover:bg-slate-600 text-white font-black text-lg py-4 rounded-2xl transition-all active:scale-95"
+                  v-if="!game.isLoading"
+                  @click="game.nextCard()"
+                  :disabled="game.isSaving"
+                  class="w-full bg-slate-700 hover:bg-slate-600 text-white font-black text-lg py-4 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Próximo Versículo →
+                  {{ game.isSaving ? 'Salvando...' : 'Próximo Versículo →' }}
                 </button>
+
+                <div v-else class="w-full bg-slate-800 text-slate-400 font-black text-lg py-4 rounded-2xl text-center animate-pulse">
+                  Carregando próximo...
+                </div>
               </div>
             </div>
 
@@ -110,11 +151,9 @@ onMounted(() => game.init())
         </div>
       </div>
 
-      <!-- Área Principal de Jogo (Múltipla Escolha) -->
       <div class="flex-shrink-0 w-full max-w-3xl mx-auto pb-6">
         <div v-if="!game.isFlipped" class="animate-fade-in">
           
-          <!-- Indicador de Progresso -->
           <div class="flex items-center justify-center gap-2 mb-3">
             <div v-for="i in 3" :key="i"
               class="h-2 rounded-full transition-all duration-300"
@@ -130,7 +169,6 @@ onMounted(() => game.init())
           </p>
           <p class="text-center text-white font-black text-xl sm:text-2xl mb-6">{{ game.stageTitle }}</p>
 
-          <!-- Botões de Opções -->
           <div class="space-y-3">
             <button
               v-for="(op, i) in game.options"
@@ -149,12 +187,16 @@ onMounted(() => game.init())
       
     </div>
 
-    <div v-else class="flex-1 flex flex-col items-center justify-center gap-4">
-      <p class="text-5xl mb-2">😔</p>
-      <p class="text-slate-400 text-lg">Nenhum versículo encontrado</p>
-      <button @click="game.fetchVerse()" class="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition-colors text-white font-bold shadow-lg shadow-indigo-500/20">
-        Tentar novamente
-      </button>
+    <div v-else class="flex-1 flex flex-col items-center justify-center gap-4 animate-fade-in text-center px-4">
+      <div class="text-6xl mb-2">🏆</div>
+      <h2 class="text-3xl font-black text-white">Sessão Concluída!</h2>
+      <p class="text-slate-400 text-lg max-w-md">
+        Você finalizou o seu deck de estudos diário. Volte amanhã para revisar e aprender novos versículos!
+      </p>
+      <div class="mt-4 px-6 py-3 bg-slate-800 rounded-xl border border-slate-700">
+        <p class="text-sm text-slate-400 uppercase tracking-widest font-bold">XP Acumulado</p>
+        <p class="text-2xl font-black text-yellow-400">{{ game.sessionScore }}</p>
+      </div>
     </div>
 
   </div>
