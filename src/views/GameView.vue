@@ -75,7 +75,7 @@ onMounted(() => game.init())
           @click="game.startQuiz()" 
           class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg py-5 rounded-2xl transition-all active:scale-95 shadow-[0_0_20px_rgba(79,70,229,0.3)]"
         >
-          Estou Pronto! Começar Desafio →
+          Começar Desafio
         </button>
       </div>
     </div>
